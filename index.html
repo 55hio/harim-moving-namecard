@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harim Oh</title>
+<style>
+  @font-face {
+    font-family: 'Andale Mono';
+    src: url('AndaleMono.ttf') format('truetype');
+    font-display: swap;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #fff; color: #000; font-family: 'Andale Mono', 'Courier New', Courier, monospace; }
+  body { height: 300vh; }
+
+  .stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .corner {
+    position: absolute;
+    will-change: transform;
+    line-height: 0;
+  }
+  .corner a { display: block; line-height: 0; }
+  .corner img { display: block; height: auto; user-select: none; -webkit-user-drag: none; }
+
+  /* size scales (px) — matches SVG intrinsic sizes */
+  #tl img { width: 95px;  }   /* name 95x30 */
+  #tr img { width: 61px;  }   /* instagram 61x10 */
+  #bl img { width: 159px; }   /* email 159x12 */
+  #br img { width: 158px; }   /* phone 158x12 */
+
+  #tl { top: 6vh;  left: 6vw; }
+  #tr { top: 6vh;  right: 6vw; }
+  #bl { bottom: 6vh; left: 6vw; }
+  #br { bottom: 6vh; right: 6vw; }
+
+  .center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    font-family: 'Andale Mono', 'Courier New', Courier, monospace;
+    font-size: 13px;
+    line-height: 2;
+    opacity: 0;
+    letter-spacing: 0.05em;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #bbb;
+    letter-spacing: 0.3em;
+    pointer-events: none;
+    font-family: 'Andale Mono', 'Courier New', Courier, monospace;
+  }
+
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #000;
+    color: #fff;
+    padding: 8px 14px;
+    font-family: 'Andale Mono', 'Courier New', Courier, monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; }
+
+  .rotate-prompt {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 24px;
+    z-index: 100;
+    text-align: center;
+    font-family: 'Andale Mono', 'Courier New', Courier, monospace;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: #000;
+  }
+  .rotate-prompt .icon {
+    width: 40px;
+    height: 64px;
+    border: 1.5px solid #000;
+    border-radius: 6px;
+    position: relative;
+    animation: rotateHint 2s ease-in-out infinite;
+  }
+  .rotate-prompt .icon::before {
+    content: '';
+    position: absolute;
+    bottom: 4px; left: 50%;
+    transform: translateX(-50%);
+    width: 10px; height: 2px;
+    background: #000; border-radius: 2px;
+  }
+  @keyframes rotateHint {
+    0%, 40% { transform: rotate(0deg); }
+    60%, 100% { transform: rotate(-90deg); }
+  }
+
+  /* show prompt only on small screens in portrait */
+  @media (max-width: 820px) and (orientation: portrait) {
+    .rotate-prompt { display: flex; }
+    .stage, .hint { display: none; }
+    body { height: 100vh; overflow: hidden; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="corner" id="tl">
+      <img src="name.svg" alt="Harim Oh 오하림 吳河林">
+    </div>
+    <div class="corner" id="tr">
+      <a href="https://instagram.com/55hio" target="_blank" rel="noopener">
+        <img src="instagram.svg" alt="@55hio">
+      </a>
+    </div>
+    <div class="corner" id="bl">
+      <a href="#" id="mail">
+        <img src="email.svg" alt="55hio@naver.com">
+      </a>
+    </div>
+    <div class="corner" id="br">
+      <a href="tel:+821066773199">
+        <img src="phone.svg" alt="82 10 6677 3199">
+      </a>
+    </div>
+
+    <div class="center" id="center"></div>
+  </div>
+
+  <div class="hint" id="hint">SCROLL ↓</div>
+  <div class="toast" id="toast">COPIED</div>
+
+  <div class="rotate-prompt">
+    <div class="icon"></div>
+    <div>PLEASE ROTATE<br>YOUR DEVICE</div>
+    <div style="font-size:10px; color:#888; letter-spacing:0.15em;">화면을 가로로 돌려주세요</div>
+  </div>
+
+<script>
+  const tl = document.getElementById('tl');
+  const tr = document.getElementById('tr');
+  const bl = document.getElementById('bl');
+  const br = document.getElementById('br');
+  const center = document.getElementById('center');
+  const hint = document.getElementById('hint');
+  const toast = document.getElementById('toast');
+
+  function update() {
+    const max = Math.max(1, document.body.scrollHeight - window.innerHeight);
+    const p = Math.min(1, Math.max(0, window.scrollY / max));
+    const e = p < 0.5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cx = vw / 2;
+    const cy = vh / 2;
+
+    // cluster layout (block-local coords, top-left of each element)
+    // name 95x30, instagram 61x10, email 159x12, phone 158x12
+    const layout = {
+      tl: { w: 95,  h: 30, x: 0,   y: 0  },   // name
+      tr: { w: 61,  h: 10, x: 95,  y: 8  },   // @55hio (right next to "Harim Oh")
+      bl: { w: 159, h: 12, x: 0,   y: 38 },   // email
+      br: { w: 158, h: 12, x: 0,   y: 56 },   // phone
+    };
+    const blockW = 161;
+    const blockH = 68;
+    const anchorX = cx - blockW/2;
+    const anchorY = cy - blockH/2;
+
+    const k = 1 - e; // 1 clustered → 0 spread
+    [['tl', tl], ['tr', tr], ['bl', bl], ['br', br]].forEach(([key, el]) => {
+      const L = layout[key];
+      const targetCx = anchorX + L.x + L.w/2;
+      const targetCy = anchorY + L.y + L.h/2;
+      const baseCx = el.offsetLeft + el.offsetWidth/2;
+      const baseCy = el.offsetTop + el.offsetHeight/2;
+      const dx = (targetCx - baseCx) * k;
+      const dy = (targetCy - baseCy) * k;
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+
+    center.style.opacity = e;
+    hint.style.opacity = 1 - e;
+  }
+
+  // load center content from data.json
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  fetch('data.json?t=' + Date.now())
+    .then(r => r.ok ? r.json() : { text: '' })
+    .then(d => {
+      const text = (d.text || '').trim();
+      center.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+    })
+    .catch(() => {});
+
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  window.addEventListener('orientationchange', update);
+  window.addEventListener('load', update);
+  update();
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 1200);
+  }
+
+  document.getElementById('mail').addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    const email = '55hio@naver.com';
+    try {
+      await navigator.clipboard.writeText(email);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = email; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    showToast('COPIED  ' + email);
+  });
+</script>
+</body>
+</html>
